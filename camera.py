@@ -278,7 +278,8 @@ def startTestImage():
     initCamera()
     logger.info( "Making test image" )
     fileStr = gbImageDir + "/" + tlPrefix + "%s" + tlSuffix + imgExtension
-    camera.annotate_text = showTime()
+    if camAnnotate:
+        camera.annotate_text = showTime()
     imageNumber = "test"
     logger.info( "image = " + fileStr % imageNumber )
     camera.capture( fileStr % imageNumber )
