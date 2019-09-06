@@ -133,7 +133,14 @@ def closeCamera():
 def initCamera():
 
     logger.info("Initializing camera")
-
+    revision = camera.revision
+    if revision == "ov5647":
+        version = "V1.x"
+    elif revision == "imx219":
+        version = "V2.x"
+    else:
+        version = "unknown"
+    logger.info("camera version: {}".format(version))
     # Global settings
     camera.resolution = (camHeight, camWidth)
     camera.rotation = camRotation
