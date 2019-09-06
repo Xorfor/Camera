@@ -12,7 +12,7 @@ modusTIMELAPSE          = "TIMELAPSE"                   # Make timelapse images
 # Application settings
 appLogging              = True                          # Default = False
 appLoggingLevel         = logging.INFO                  # Default = logging.CRITICAL
-appModus                = modusTESTIMAGE
+appModus                = modusTESTIMAGE                # Default = modusTESTIMAGE
 
 # Global settings
 gbImageDir              = "/mnt/usba/images"            # Directory to store images for timelapse
