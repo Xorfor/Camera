@@ -39,6 +39,8 @@ camFrameRate            = 10
 
 # Image settings
 imgFormat               = "jpeg"                        # Allowed values: bmp, gif, jpeg, png. Default = jpeg
+
+# Timelapse settings
 tlSequenceStart         = 1                             # Start image sequence with this number. Default = 1
 tlTotalImages           = 10                            # Total number of images. Default = 5000
 tlTimeBetween           = 10                            # Time between each picture in seconds. Default = 10
