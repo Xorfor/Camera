@@ -23,10 +23,13 @@ gbDateTimeFormat        = "%Y-%m-%d %H:%M:%S"           # Date/time format used 
 mtnMinimumStillSec      = 1                             # Motion find compared with x sec. ago?
 mtnMagnitude            = 80                            # If there're more than 10 vectors with a magnitude specified, then motion was detected:
 
+# PIR settings
+pirSensorPin            = 11                            # Pin number on the GPIO port. Default = 11
+
 # Camera settings
 camDay                  = True                          # True = day (light), False = night (dark). Default = True
-camHeight               = 1200
-camWidth                = 720
+camHeight               = 1920
+camWidth                = 1080
 camRotation             = 0                             # Valid values are 0, 90, 180, and 270. Default = 0
 camVFlip                = False                         # Flip image vertically. Default=False
 camHFlip                = False                         # Flip image horizontally. Default=False

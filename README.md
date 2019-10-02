@@ -2,6 +2,8 @@
 Python program to take pictures or movies triggered by motion or time on a RPi with the PiCamera attached. Code also supports the use of a PIR connected to the GPIO pins.
 
 ## Prerequisites
+
+### Picamera
 Install `picamera`:
 ```
 $ sudo apt-get install python-picamera python3-picamera
@@ -17,6 +19,15 @@ $ sudo raspi-config
 1. Choose `Yes`
 1. Choose `Ok`
 1. Choose `Finish`, and boot your RPi if required
+
+### PIR (optional)
+Buy a PIR like the one which can be found at [Kiwi](https://www.kiwi-electronics.nl/pir-bewegingssensor). Connect the pins of the PIR to the GPIO pins on the Raspberry Pi in the following way:
+
+| PIR  | GPIO |
+| :--- | ---: |
+| VCC  |    2 |
+| OUT  |   11 |
+| GND  |   14 |
 
 ## Installation
 Be sure `git` is installed:

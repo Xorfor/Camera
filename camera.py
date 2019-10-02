@@ -2,13 +2,16 @@
 # Based on:
 #   //github.com/pageauc/pi-timolo
 # ================================================================================
+import RPi.GPIO as GPIO
 import os
 import datetime
+import sys
 import time
 import picamera
 import picamera.array
 import logging
 import signal
+import io
 import numpy as np
 from fractions import Fraction
 from config import *
@@ -40,11 +43,21 @@ imgExtension = "jpg"
 # --------------------------------------------------------------------------------
 # Logging
 # --------------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO,
-                    format="[%(levelname)-8s] %(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)-8s] %(asctime)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 logger.disabled = not appLogging
 logger.setLevel(appLoggingLevel)
+
+# --------------------------------------------------------------------------------
+# Setup PIR
+# --------------------------------------------------------------------------------
+# Setting the GPIO (General Purpose Input Output) pins up so we can detect if they are HIGH or LOW (on or off)
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(pirSensorPin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 # --------------------------------------------------------------------------------
 # The 'analyse' method gets called on every frame processed while picamera
@@ -54,22 +67,27 @@ logger.setLevel(appLoggingLevel)
 
 
 class DetectMotion(picamera.array.PiMotionAnalysis):
-
     def analyse(self, a):
 
         global motion_detected, last_still_capture_time
 
-        if datetime.datetime.now() > last_still_capture_time + \
-                datetime.timedelta(seconds=mtnMinimumStillSec):
-            a = np.sqrt(
-                np.square(a['x'].astype(np.float)) +
-                np.square(a['y'].astype(np.float))
-            ).clip(0, 255).astype(np.uint8)
+        if datetime.datetime.now() > last_still_capture_time + datetime.timedelta(
+            seconds=mtnMinimumStillSec
+        ):
+            a = (
+                np.sqrt(
+                    np.square(a["x"].astype(np.float))
+                    + np.square(a["y"].astype(np.float))
+                )
+                .clip(0, 255)
+                .astype(np.uint8)
+            )
             # experiment with the following "if" as it may be too sensitive ???
             # if there're more than 10 vectors with a magnitude greater than 60, then motion was detected:
             if (a > mtnMagnitude).sum() > 10:
                 logger.info("Motion detected")
                 motion_detected = True
+
 
 # --------------------------------------------------------------------------------
 
@@ -79,7 +97,11 @@ def check_config():
     logger.info("Checking configuration")
 
     # Checks for image folders and creates them if they do not already exist.
-    if appModus == modusTESTIMAGE or appModus == modusMOTIONIMAGE or appModus == modusTIMELAPSE:
+    if (
+        appModus == modusTESTIMAGE
+        or appModus == modusMOTIONIMAGE
+        or appModus == modusTIMELAPSE
+    ):
         if not os.path.isdir(gbImageDir):
             logger.info("Creating image folder %s" % gbImageDir)
             os.makedirs(gbImageDir)
@@ -92,6 +114,8 @@ def check_config():
         logger.info("Folder %s" % gbVideoDir)
 
     return
+
+
 # --------------------------------------------------------------------------------
 
 
@@ -112,20 +136,24 @@ signal.signal(signal.SIGTERM, signal_term_handler)
 def showTime():
     return datetime.datetime.now().strftime(gbDateTimeFormat)
 
+
 # --------------------------------------------------------------------------------
 
 
 def CtrlC():
     logger.info("Received KeyboardInterrupt via Ctrl-C")
-    pass
+    GPIO.cleanup()
+
 
 # --------------------------------------------------------------------------------
 
 
 def closeCamera():
     camera.close()
+    GPIO.cleanup()
     logger.info("Actions: {}".format(actionCount))
     logger.info("Camera turned off")
+
 
 # --------------------------------------------------------------------------------
 
@@ -162,7 +190,9 @@ def initCamera():
             camera.annotate_text_size = camAnnotateTextSize
             # camera.annotate_foreground  = camAnnotateForeground
             # camera.annotate_background  = camAnnotateBackground
-            logger.info("camera.annotate_text_size = {}".format(camera.annotate_text_size))
+            logger.info(
+                "camera.annotate_text_size = {}".format(camera.annotate_text_size)
+            )
             # logger.info( "camera.annotate_foreground = %s" % ( camera.annotate_foreground ) )
             # logger.info( "camera.annotate_background = %s" % ( camera.annotate_background ) )
 
@@ -181,14 +211,14 @@ def initCamera():
             # Settings for Low Light Conditions
             # Set a frame rate of 1/6 fps, then set ISO to 800
             camera.framerate = Fraction(1, 6)
-            #camera.iso              = camNightISO
+            # camera.iso              = camNightISO
             # Give the camera a good long time to measure AWB
             # time.sleep( 30 )
             # Now fix the values
             camera.shutter_speed = camera.exposure_speed
-            camera.exposure_mode = 'off'
+            camera.exposure_mode = "off"
             g = camera.awb_gains
-            camera.awb_mode = 'off'
+            camera.awb_mode = "off"
             camera.awb_gains = g
 
     # Corrections for light/dark
@@ -205,6 +235,7 @@ def initCamera():
     logger.info("camera.iso = {}".format(camera.iso))
     logger.info("Camera initialized")
 
+
 # --------------------------------------------------------------------------------
 
 
@@ -220,6 +251,7 @@ def CaptureImage(fname):
     logger.info("image = " + fname)
     camera.capture(fname, imgFormat)
 
+
 # --------------------------------------------------------------------------------
 
 
@@ -227,7 +259,7 @@ def write_video(stream):
     """Write the entire content of the circular buffer to disk. No need to
     lock the stream here as we're definitely not writing to it simultaneously.
     """
-    with io.open('before.h264', 'wb') as output:
+    with io.open("before.h264", "wb") as output:
         for frame in stream.frames:
             if frame.frame_type == picamera.PiVideoFrameType.sps_header:
                 stream.seek(frame.position)
@@ -251,8 +283,9 @@ def startTimelapse():
     try:
         initCamera()
         logger.info("Start timelapse")
-        logger.info("This will take approx. {} sec.".format(
-            tlTotalImages * tlTimeBetween))
+        logger.info(
+            "This will take approx. {} sec.".format(tlTotalImages * tlTimeBetween)
+        )
         imageCount = 1
         while imageCount <= tlTotalImages:
             CaptureImage(fname(str(imageCount).zfill(tlSequenceSize)))
@@ -282,8 +315,7 @@ def startMotionPicture():
     with DetectMotion(camera) as output:
         try:
             # record video to nowhere, as we are just trying to capture images:
-            camera.start_recording(
-                '/dev/null', format='h264', motion_output=output)
+            camera.start_recording("/dev/null", format="h264", motion_output=output)
             motion_detected = False
             logger.info("Waiting for motion...")
             while True:
@@ -291,11 +323,12 @@ def startMotionPicture():
                 if motion_detected:
                     logger.info("Stop recording and capture an image...")
                     camera.stop_recording()
-                    CaptureImage()
+                    CaptureImage(None)
                     imageCount += 1
                     actionCount += 1
                     camera.start_recording(
-                        '/dev/null', format='h264', motion_output=output)
+                        "/dev/null", format="h264", motion_output=output
+                    )
                     motion_detected = False
                     logger.info("Waiting for motion...")
 
@@ -311,6 +344,8 @@ def startTestImage():
     """ This will make an image which can be used to position the camera and set
     the configuration
     """
+    logger.info("startTestImage")
+
     global actionCount
 
     initCamera()
@@ -320,6 +355,7 @@ def startTestImage():
     logger.info("Test image ended")
     closeCamera()
 
+
 # ================================================================================
 # Helper functions
 # ================================================================================
@@ -328,15 +364,40 @@ def startTestImage():
 def fname(name):
     return "{}/{}{}{}{}".format(gbImageDir, tlPrefix, name, tlSuffix, imgExtension)
 
+
 # --------------------------------------------------------------------------------
 
 
 def startPIRImage():
 
-    logger.info("startMotionVideo")
+    logger.info("startPIRImage")
 
+    global imageCount
+    global actionCount
+
+    initCamera()
+    imageCount = 1
     try:
-        pass
+        # Defining our default states so we can detect a change
+        prev_state = False
+        curr_state = False
+        logger.info("Waiting for motion...")
+        while True:
+            time.sleep(0.1)
+            prev_state = curr_state
+            # Map the state of the camera to our input pins (jumper cables connected to your PIR)
+            curr_state = GPIO.input(pirSensorPin)
+            # Checking whether the state has changed
+            if curr_state != prev_state:
+                # Check if our new state is HIGH or LOW
+                new_state = "HIGH" if curr_state else "LOW"
+                logger.info("GPIO pin {} is {}".format(pirSensorPin, new_state))
+                if (
+                    curr_state
+                ):  # State has changed to HIGH, so that must be a trigger from the PIR
+                    CaptureImage(None)
+                    imageCount += 1
+                    actionCount += 1
 
     except KeyboardInterrupt as e:
         KeyboardInterrupt()
@@ -345,11 +406,13 @@ def startPIRImage():
         logger.info("Detect PIR Image has ended.")
         closeCamera()
 
+
 # --------------------------------------------------------------------------------
 
 
 def startPIRMotion():
     pass
+
 
 # --------------------------------------------------------------------------------
 
@@ -368,8 +431,7 @@ def startMotionVideo():
     with DetectMotion(camera) as output:
         try:
             # record video to nowhere, as we are just trying to capture images:
-            camera.start_recording(
-                '/dev/null', format='h264', motion_output=output)
+            camera.start_recording("/dev/null", format="h264", motion_output=output)
             motion_detected = False
             logger.info("Waiting for motion...")
             while True:
@@ -383,7 +445,8 @@ def startMotionVideo():
                     imageCount += 1
                     actionCount += 1
                     camera.start_recording(
-                        '/dev/null', format='h264', motion_output=output)
+                        "/dev/null", format="h264", motion_output=output
+                    )
                     motion_detected = False
                     logger.info("Waiting for motion...")
 
@@ -393,6 +456,7 @@ def startMotionVideo():
         finally:
             logger.info("Detect motion has ended.")
             closeCamera()
+
 
 # ********************************************************************************
 
@@ -417,15 +481,20 @@ def main():
         startTestImage()
     elif appModus == modusMOTIONIMAGE:
         startMotionPicture()
+    elif appModus == modusPIRIMAGE:
+        startPIRImage()
+    elif appModus == modusPIRVIDEO:
+        startPIRMotion()
     elif appModus == modusMOTIONVIDEO:
         startMotionVideo()
     else:
         logger.error("Invalid modus: %s " % (appModus))
 
+
 # ********************************************************************************
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     finally:
