@@ -41,7 +41,7 @@ pirSensorPin = 11
     Camera settings
 """
 # True = day (light), False = night (dark). Default = True
-camDay = False
+camDay = True
 camHeight = 1080
 camWidth = 1920
 # Valid values are 0, 90, 180, and 270. Default = 0
